@@ -129,7 +129,7 @@ def prune_net(sparsity = 0.8, module_dict = {}, param = 'weight'):
     # apply L1Unstructured pruning globally
     prune.global_unstructured(parameters_to_prune, prune.L1Unstructured, amount = sparsity)
 
-def create_ticket(trained_model, initial_model_dict, resnet20 = True):
+def create_ticket(trained_model, initial_model_dict):
     """Creates the lottery ticket from a trained and pruned model
 
     Parameters

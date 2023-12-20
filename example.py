@@ -22,6 +22,10 @@ model_gmp_it = densenet121()
 model_gmp_it.load_state_dict(model_unpruned.state_dict())
 
 def compute(model, num_epochs = 5, sparsity = 0.8, iterative_pruning = False):
+    if torch.cuda.is_available():
+        model.cuda()
+    else:
+        model.cpu()
     
     training_loss = []
     training_acc =[]
@@ -41,7 +45,10 @@ def compute(model, num_epochs = 5, sparsity = 0.8, iterative_pruning = False):
                                                batch_size = batch_size, 
                                                shuffle = False,
                                                 )
-    criterion = nn.CrossEntropyLoss().cpu()
+    if torch.cuda.is_available():
+        criterion = nn.CrossEntropyLoss().cuda()
+    else:
+        criterion = nn.CrossEntropyLoss().cpu()
 
     optimizer = torch.optim.SGD(model.parameters(), 
                                 lr,
@@ -55,14 +62,15 @@ def compute(model, num_epochs = 5, sparsity = 0.8, iterative_pruning = False):
         sparsity = 1 - (1 - sparsity) ** (1 / (num_epochs-1))
     
     for epoch in range(num_epochs):
+        print("Starting epoch ", epoch+1)
         loss, acc = train(train_loader, model, criterion, optimizer)
 
-        training_loss.append(loss)
+        training_loss.append(loss.item())
         training_acc.append(acc)
 
         t_loss, t_acc = test(test_loader, model, criterion)
 
-        test_loss.append(t_loss)
+        test_loss.append(t_loss.item())
         test_acc.append(t_acc)
     
     helper.prune_net(sparsity, to_prune)
@@ -72,55 +80,49 @@ def compute(model, num_epochs = 5, sparsity = 0.8, iterative_pruning = False):
 def train(train_loader, model, criterion, optimizer):
 
     model.train()
-    num_correct_pred = []
+    num_correct_pred = 0
 
     for i, (input, target) in enumerate(train_loader):
+        if torch.cuda.is_available():
+            input = input.cuda()
+            target = target.cuda()
+        else:
+            input = input.cpu()
+            target = target.cpu()
 
         output = model(input)
 
         loss = criterion(output, target)
-        
-        # print(output)
-        # #print(target[i])
-        # if output.idxmax() == target[i]-1:
-        #     num_correct_pred.append(1)
-        # else:
-        #     num_correct_pred.append(0)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        loss = loss.float()
-    
-    #acc = (len(train_loader)/sum(num_correct_pred)).float()
     acc = 0
-
     return loss, acc
 
 def test(test_loader, model, criterion):
 
     model.eval()
-    num_correct_pred = []
+    num_correct_pred = 0
 
     with torch.no_grad():
         for i, (input, target) in enumerate(test_loader):
+            if torch.cuda.is_available():
+                input = input.cuda()
+                target = target.cuda()
+            else:
+                input = input.cpu()
+                target = target.cpu()
 
             output = model(input)
 
             loss = criterion(output, target)
 
-            # if output == target[i]:
-            #     num_correct_pred.append(1)
-            # else:
-            #     num_correct_pred.append(0)
-
-    #acc = (len(test_loader)/sum(num_correct_pred)).float()
     acc = 0
-
     return loss, acc
 
-training_loss, training_acc, test_loss, test_acc = compute(model_gmp, 10, 0.8)
+training_loss, training_acc, test_loss, test_acc = compute(model_gmp, num_epochs=30, sparsity=0.8, iterative_pruning=False)
 
-print('right hereee: ', training_loss)
-print('asdfkjasödkfjqpöwoierhjtgiuhghsdg: ', test_loss)
+print('training losses/accs: ', training_loss, training_acc)
+print('test losses/accs: ', test_loss, test_acc)
